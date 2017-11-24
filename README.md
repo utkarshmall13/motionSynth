@@ -1,2 +1,2 @@
 # motionSynth
-Motion Synthesis
+Deep Human Motion Synthesis 
