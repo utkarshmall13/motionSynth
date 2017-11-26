@@ -1,0 +1,1 @@
+motion_classes = "07,08,09,10,11".split(",")
