@@ -52,7 +52,7 @@ class AutoEncoder:
 		self.optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate).minimize(self.loss)
 
 	def declare_init(self):
-		self.init = tf.initialize_all_variables()
+		self.init = tf.global_variables_initializer()
 
 	def run_init(self):
 		self.session.run(self.init)
