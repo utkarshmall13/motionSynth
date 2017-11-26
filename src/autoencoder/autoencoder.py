@@ -78,7 +78,14 @@ for i in range(epochs):
 	for j in range(0,npdata.shape[0],batch_size):
 		autoencoder.run_training(npdata[j:min(j+batch_size,npdata.shape[0])])
 		loss = autoencoder.get_loss(npdata[j:min(j+batch_size,npdata.shape[0])])
-		logger.logger.info("Epoch: %d/%d | subiteration %d/%d | minibatch loss: %f",i+1,epochs,j+1,npdata.shape[0],loss)
+		# logger.logger.info("Epoch: %d/%d | subiteration %d/%d | minibatch loss: %f",i+1,epochs,j+1,npdata.shape[0],loss)
+	Loss = []
+	for j in range(0,npdata.shape[0],batch_size):
+		loss = autoencoder.get_loss(npdata[j:min(j+batch_size,npdata.shape[0])])
+		Loss.append(loss)
+	logger.logger.info("Epoch: %d/%d | total loss: %f",i+1,epochs,sum(Loss)/len(Loss))
+
+
 	autoencoder.save_model()
 
 
