@@ -1,3 +1,5 @@
+#use "python3 autoencoder.py -mn basic_ae -s locomotion_small" to test
+
 import sys
 sys.path.append('../Lib')
 sys.path.append('../Config')
