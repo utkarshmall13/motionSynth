@@ -23,6 +23,7 @@ parser.add_argument("--learning-rate","-lr",type=int,default=0.01)
 parser.add_argument("--model-name","-mn",type=str,required = True)
 parser.add_argument("--look-around","-la",type=int,default = 5)
 parser.add_argument("--batch-size","-bs",type=int,default = 128)
+parser.add_argument("--keep-prob","-kp",type=float,default = 0.5)
 
 args = parser.parse_args()
 
@@ -33,6 +34,7 @@ learning_rate = args.learning_rate
 model_name = args.model_name
 look_around = args.look_around
 batch_size = args.batch_size
+keep_prob = args.keep_prob
 
 motion_classes = getattr(__import__(subjects,fromlist=["motion_classes"]),"motion_classes")
 ##################################################################
@@ -70,7 +72,7 @@ print(npdata.shape)
 #Training
 from network import AutoEncoder
 
-autoencoder = AutoEncoder(join("model",model_name),1,learning_rate,(look_around,channels))
+autoencoder = AutoEncoder(join("model",model_name),keep_prob,learning_rate,(look_around,channels))
 
 for i in range(epochs):
 	for j in range(0,npdata.shape[0],batch_size):
