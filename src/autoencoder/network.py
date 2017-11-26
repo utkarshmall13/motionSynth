@@ -46,7 +46,7 @@ class AutoEncoder:
 		self.output = tf.nn.dropout(self.output,keep_prob = self.dropout)
 
 	def define_loss(self):
-		self.loss = tf.reduce_sum(tf.square(self.output-self.x))
+		self.loss = tf.reduce_mean(tf.square(self.output-self.x))
 
 	def define_optimizer(self):
 		self.optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate).minimize(self.loss)
