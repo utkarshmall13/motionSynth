@@ -21,7 +21,8 @@ parser.add_argument("--subjects","-s",type=str,default="locomotion")
 parser.add_argument("--epochs","-e",type=int,default=200)
 parser.add_argument("--learning-rate","-lr",type=float,default=0.01)
 parser.add_argument("--model-name","-mn",type=str,required = True)
-parser.add_argument("--look-around","-la",type=int,default = 25)
+parser.add_argument("--look-around","-la",type=int,default = 24)
+parser.add_argument("--window-size","-ws",type=int,default = 120)
 parser.add_argument("--batch-size","-bs",type=int,default = 128)
 parser.add_argument("--keep-prob","-kp",type=float,default = 0.5)
 
@@ -33,6 +34,7 @@ epochs = args.epochs
 learning_rate = args.learning_rate
 model_name = args.model_name
 look_around = args.look_around
+window_size = args.window_size
 batch_size = args.batch_size
 keep_prob = args.keep_prob
 
@@ -68,8 +70,8 @@ channels = len(data[0][0])
 
 data_in_format = []
 for datum in data:
-	for i in range(len(datum)-look_around+1):
-		data_in_format.append(np.array(datum[i:i+look_around]))
+	for i in range(len(datum)-window_size+1):
+		data_in_format.append(np.array(datum[i:i+window_size]))
 npdata = np.array(data_in_format)
 logger.logger.info("Formatted data with size %d",npdata.shape[0])
 
@@ -77,7 +79,7 @@ logger.logger.info("Formatted data with size %d",npdata.shape[0])
 #Training
 from network import ConvAutoEncoder
 
-autoencoder = ConvAutoEncoder(join("model",model_name),keep_prob,learning_rate,(look_around,channels))
+autoencoder = ConvAutoEncoder(join("model",model_name),keep_prob,learning_rate,(window_size,channels),look_around)
 
 for i in range(epochs):
 	for j in range(0,npdata.shape[0],batch_size):

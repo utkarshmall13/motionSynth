@@ -2,12 +2,17 @@ import numpy as np
 import tensorflow as tf
 
 class ConvAutoEncoder:
-	def __init__(self,model_name,keep_prob,learning_rate,dim):
+	def __init__(self,model_name,keep_prob,learning_rate,dim,look_around,feature_dim=256):
 		self.dim = dim
+		self.feature_dim = feature_dim
+		self.look_around = look_around
 
 		self.keep_prob = keep_prob
 		self.model_name = model_name
 		self.learning_rate = learning_rate
+
+		self.stride = 2
+		self.ksize = 3
 
 		self.declare_placeholder()
 		self.contruct_network()
@@ -23,28 +28,44 @@ class ConvAutoEncoder:
 		self.dropout = tf.placeholder(tf.float32)
 
 
+
+	def _maxpool1D(self,inp,ksize,strides,padding,name=None):
+		return tf.squeeze(tf.nn.max_pool(tf.expand_dims(inp,axis=1),(1,1,ksize,1),(1,1,strides,1),padding,name=name),axis=1)
+
+	# def _unmaxpool1D(self,inp,binary_mask,is_training,strides,padding,name=None):
+	# 	repeated_tensor = self._repeat(inp,[1,strides,1])
+	# 	if(is_training):
+	# 		return repeated_tensor*binary_mask
+	# 	else:
+	# 		return repeated_tensor/2
+	def _unmaxpool1D(self,inp,strides,padding,name=None):
+		repeated_tensor = self._repeat(inp,[1,strides,1])
+		return repeated_tensor/2
+
+	def _repeat(self,tensor,repeats):
+	    with tf.variable_scope("repeat"):
+	        expanded_tensor = tf.expand_dims(tensor, -1)
+	        multiples = [1] + repeats
+	        tiled_tensor = tf.tile(expanded_tensor, multiples = multiples)
+	        repeated_tensor = tf.reshape(tiled_tensor, tf.shape(tensor) * repeats)
+	    return repeated_tensor
+	
+	
 	def contruct_network(self):
 
-		self.encoder_W = tf.Variable(tf.truncated_normal([self.dim[0]*self.dim[1],int(self.dim[0]*self.dim[1]/2)]))
-		self.encoder_b = tf.Variable(tf.truncated_normal([int(self.dim[0]*self.dim[1]/2)]))
+		self.encoder_W = tf.Variable(tf.truncated_normal([self.look_around,self.dim[1],self.feature_dim]))
+		self.encoder_b = tf.Variable(tf.zeros([self.feature_dim]))
 
-		# self.decoder_1W = tf.Variable(tf.truncated_normal([int(self.dim[0]*self.dim[1]/4),int(self.dim[0]*self.dim[1]/2)]))
-		# self.decoder_1b = tf.Variable(tf.truncated_normal([int(self.dim[0]*self.dim[1]/2)]))
-		# self.decoder_2W = tf.Variable(tf.truncated_normal([int(self.dim[0]*self.dim[1]/2),self.dim[0]*self.dim[1]]))
-		# self.decoder_2b = tf.Variable(tf.truncated_normal([self.dim[0]*self.dim[1]]))
+		self.wx = tf.nn.conv1d(self.x,self.encoder_W,stride=1,padding='SAME')
+		self.wx_b = tf.nn.bias_add(self.wx,self.encoder_b)
+		self.mp_wx_b = self._maxpool1D(self.wx_b,self.ksize,self.stride,'SAME')
+		self.dropout_mp_wx_b = tf.nn.dropout(self.mp_wx_b,keep_prob=self.dropout)
+		self.feature = tf.nn.relu(self.dropout_mp_wx_b)
 
-		self.wxb = tf.nn.conv1d()
-
-		self.enc1 = tf.nn.tanh(tf.nn.bias_add(tf.matmul(tf.reshape(self.x,[-1,self.dim[0]*self.dim[1]]),\
-			self.encoder_1W),self.encoder_1b))
-		self.enc1 = tf.nn.dropout(self.enc1,keep_prob = self.dropout)
-		self.feat = tf.nn.tanh(tf.nn.bias_add(tf.matmul(self.enc1,self.encoder_2W),self.encoder_2b))
-		self.feat = tf.nn.dropout(self.feat,keep_prob = self.dropout)
-
-		self.dec1 = tf.nn.tanh(tf.nn.bias_add(tf.matmul(self.feat,self.decoder_1W),self.decoder_1b))
-		self.dec1 = tf.nn.dropout(self.dec1,keep_prob = self.dropout)
-		self.output = tf.reshape(tf.nn.bias_add(tf.matmul(self.dec1,self.decoder_2W),self.decoder_2b),[-1,self.dim[0],self.dim[1]])
-		self.output = tf.nn.dropout(self.output,keep_prob = self.dropout)
+		self.wx_b_ = self._unmaxpool1D(self.feature,self.stride,padding='SAME',name=None)
+		self.wx_ = tf.nn.bias_add(self.wx_b_,-self.encoder_b)
+		self.dropout_wx_ = tf.nn.dropout(self.wx_,keep_prob=self.dropout)
+		self.output = tf.nn.conv1d(self.dropout_wx_,tf.transpose(tf.reverse(self.encoder_W,axis=[0]),perm=(0,2,1)),stride=1,padding="SAME")
 
 	def define_loss(self):
 		self.loss = tf.reduce_mean(tf.square(self.output-self.x))
