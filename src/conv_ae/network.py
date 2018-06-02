@@ -13,6 +13,8 @@ class ConvAutoEncoder:
 
 		self.stride = 2
 		self.ksize = 3
+		self.alpha = 0.01
+
 
 		self.declare_placeholder()
 		self.contruct_network()
@@ -52,26 +54,34 @@ class ConvAutoEncoder:
 	
 	
 	def contruct_network(self):
-
+		#TODO fan-in fan-out
 		self.encoder_W = tf.Variable(tf.truncated_normal([self.look_around,self.dim[1],self.feature_dim]))
 		self.encoder_b = tf.Variable(tf.zeros([self.feature_dim]))
 
 		self.wx = tf.nn.conv1d(self.x,self.encoder_W,stride=1,padding='SAME')
 		self.wx_b = tf.nn.bias_add(self.wx,self.encoder_b)
 		self.mp_wx_b = self._maxpool1D(self.wx_b,self.ksize,self.stride,'SAME')
-		self.dropout_mp_wx_b = tf.nn.dropout(self.mp_wx_b,keep_prob=self.dropout)
-		self.feature = tf.nn.relu(self.dropout_mp_wx_b)
+		# self.dropout_mp_wx_b = tf.nn.dropout(self.mp_wx_b,keep_prob=self.dropout)
+		# self.feature = tf.nn.relu(self.dropout_mp_wx_b)
+
+		self.feature = tf.nn.relu(self.mp_wx_b)
 
 		self.wx_b_ = self._unmaxpool1D(self.feature,self.stride,padding='SAME',name=None)
 		self.wx_ = tf.nn.bias_add(self.wx_b_,-self.encoder_b)
 		self.dropout_wx_ = tf.nn.dropout(self.wx_,keep_prob=self.dropout)
 		self.output = tf.nn.conv1d(self.dropout_wx_,tf.transpose(tf.reverse(self.encoder_W,axis=[0]),perm=(0,2,1)),stride=1,padding="SAME")
+		# self.output = tf.Print(self.output,[self.output])
+		# self.output = tf.Print(self.output,[self.x])
+		# self.output = tf.Print(self.output,[tf.reduce_mean(tf.square(self.output-self.x))])
 
 	def define_loss(self):
-		self.loss = tf.reduce_mean(tf.square(self.output-self.x))
+		self.loss1 = tf.reduce_mean(tf.reduce_mean(tf.square(self.output-self.x),axis=1))
+		self.loss2 = self.alpha*(tf.reduce_sum(tf.abs(self.encoder_W))+tf.reduce_sum(tf.abs(self.encoder_b)))
+		self.loss = self.loss1+self.loss2
 
 	def define_optimizer(self):
-		self.optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate).minimize(self.loss)
+		self.optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate).minimize(self.loss2)
+		self.optimizer_reg = tf.train.AdamOptimizer(learning_rate = self.learning_rate).minimize(self.loss)
 
 	def declare_init(self):
 		self.init = tf.global_variables_initializer()
@@ -91,10 +101,21 @@ class ConvAutoEncoder:
 	def restore_model(self):
 		self.saver.restore(self.session,self.model_name)
 		
-	def run_training(self,input):
-		self.session.run(self.optimizer,feed_dict={self.x:input,self.dropout:self.keep_prob})
-	def get_loss(self,input):
-		return self.session.run(self.loss,feed_dict={self.x:input,self.dropout:1})
+	def run_training(self,input,justreg=False):
+		if(justreg):
+			self.session.run(self.optimizer,feed_dict={self.x:input,self.dropout:self.keep_prob})
+		else:
+			self.session.run(self.optimizer_reg,feed_dict={self.x:input,self.dropout:self.keep_prob})
 
+	def get_loss(self,input,which=None):
+		if(which is None):
+			l1,l2 = self.session.run([self.loss1,self.loss2],feed_dict={self.x:input,self.dropout:1})
+			return str(l1)+"+"+str(l2)+'='+str(l1+l2)
+		if(which=="main"):
+			return self.session.run(self.loss1,feed_dict={self.x:input,self.dropout:1})
+		if(which=="reg"):
+			return self.session.run(self.loss2,feed_dict={self.x:input,self.dropout:1})
 
+	def get_reconstruction(self,input,which=None):
+		return self.session.run(self.output,feed_dict={self.x:input,self.dropout:1})
 
